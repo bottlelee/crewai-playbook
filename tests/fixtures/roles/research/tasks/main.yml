@@ -1,0 +1,8 @@
+- name: "Conduct research"
+  agents:
+    - researcher
+  task: "Research {{ topic }} at {{ depth }} depth"
+- name: "Summarize findings"
+  agents:
+    - researcher
+  task: "Summarize the research findings"

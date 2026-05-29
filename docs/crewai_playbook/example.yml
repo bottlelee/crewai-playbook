@@ -1,0 +1,77 @@
+# =============================================================================
+# crewai-playbook Demo
+# =============================================================================
+# Run:  crewai-playbook run docs/crewai_playbook/example.yml
+# Check: crewai-playbook --check docs/crewai_playbook/example.yml
+# Lint:  crewai-playbook lint docs/crewai_playbook/example.yml
+# =============================================================================
+
+- name: "Research & Writing Pipeline"
+  agents:
+    - manager
+    - researcher
+    - writer
+    - reviewer
+  gather_facts: true
+  process: hierarchical         # manager coordinates tasks
+  vars:
+    topic: "Artificial Intelligence"
+
+  tasks:
+    - name: "Research the topic"
+      agents:
+        - researcher
+      task: >
+        Research the topic "{{ topic }}" and provide key findings,
+        recent developments, and expert opinions.
+
+    - name: "Write article"
+      agents:
+        - writer
+      task: >
+        Based on the research findings of "{{ topic }}",
+        write a well-structured article.
+
+    - name: "Review article"
+      agents:
+        - reviewer
+      task: >
+        Review the article about {{ topic }} for quality and completeness.
+      notify:
+        - LogCompletion
+
+  handlers:
+    - name: "LogCompletion"
+      tasks:
+        - name: "Log to console"
+          agents:
+            - reviewer
+          task: "All tasks completed successfully for {{ topic }}"
+
+
+# ── Block / Rescue / Always Example ──────────────────────────────────────────
+- name: "Error Handling Demo"
+  agents:
+    - researcher
+    - writer
+  gather_facts: false
+  tasks:
+    - block:
+        - name: "Attempt primary research"
+          agents:
+            - researcher
+          task: "Try primary research method"
+          register: primary_result
+      rescue:
+        - name: "Fallback research"
+          agents:
+            - researcher
+          task: "Use fallback research method"
+          register: fallback_result
+      always:
+        - name: "Log outcome"
+          agents:
+            - writer
+          task: >
+            Research completed.
+            Success: {{ primary_result_succeeded | default(false) }}

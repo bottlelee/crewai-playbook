@@ -1,0 +1,4 @@
+- name: "Write content"
+  agents:
+    - writer
+  task: "Write in {{ format }} format"

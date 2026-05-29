@@ -1,0 +1,41 @@
+agents:
+  manager:
+    role: "Project Manager"
+    goal: "Coordinate agents, assign tasks, and synthesize results"
+    backstory: "Experienced team lead who excels at orchestrating multi-agent workflows."
+    tools: []
+    allow_delegation: true
+    verbose: true
+    leader: true
+    groups: ["default"]
+    llm: "ollama/gemma4:latest"
+
+  researcher:
+    role: "Research Specialist"
+    goal: "Find and synthesize relevant information"
+    backstory: "Expert researcher with years of experience."
+    tools: []
+    allow_delegation: false
+    verbose: true
+    groups: ["default", "research"]
+    llm: "ollama/gemma4:latest"
+
+  writer:
+    role: "Content Writer"
+    goal: "Transform research into clear, structured content"
+    backstory: "Professional writer specializing in technical content."
+    tools: []
+    allow_delegation: false
+    verbose: true
+    groups: ["default", "writing"]
+    llm: "ollama/gemma4:latest"
+
+  reviewer:
+    role: "Quality Reviewer"
+    goal: "Review and improve content quality"
+    backstory: "Senior editor with an eye for detail."
+    tools: []
+    allow_delegation: false
+    verbose: true
+    groups: ["default", "qa"]
+    llm: "ollama/gemma4:latest"
