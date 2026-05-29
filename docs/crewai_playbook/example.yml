@@ -24,6 +24,7 @@
       task: >
         Research the topic "{{ topic }}" and provide key findings,
         recent developments, and expert opinions.
+      dest: "{{ playbook_dir }}/docs/research"
 
     - name: "Write article"
       agents:
@@ -31,12 +32,16 @@
       task: >
         Based on the research findings of "{{ topic }}",
         write a well-structured article.
+      src: "{{ playbook_dir }}/docs/research"
+      dest: "{{ playbook_dir }}/docs/article"
 
     - name: "Review article"
       agents:
         - reviewer
       task: >
         Review the article about {{ topic }} for quality and completeness.
+      src: "{{ playbook_dir }}/docs/article"
+      dest: "{{ playbook_dir }}/docs/review"
       notify:
         - LogCompletion
 

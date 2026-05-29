@@ -1,23 +1,3 @@
-<!--
-  Sync Impact Report
-  ===================
-  Version change: (new) v1.0.0
-  Modified principles: N/A (initial version)
-  Added sections:
-    - Five Core Principles (I through V)
-    - Section 2: Technical Constraints
-    - Section 3: Quality Gates
-    - Governance section
-  Removed sections: N/A
-  Templates requiring updates:
-    - .specify/templates/constitution-template.md — ✅ not touched (source template)
-    - .specify/templates/plan-template.md — ⚠ pending: add "Constitution Check" gates ref
-    - .specify/templates/spec-template.md — ✅ no changes needed
-    - .specify/templates/tasks-template.md — ✅ no changes needed
-    - .specify/templates/checklist-template.md — ✅ no changes needed
-  Follow-up TODOs: None — all placeholders resolved.
--->
-
 # crewai-playbook Constitution
 
 ## Core Principles
@@ -30,7 +10,9 @@ where YAML is the source of truth and code is the exception.
 
 Rationale: YAML is readable, version-controllable, and accessible to non-
 developers. Hardcoding forces re-deployment for every change; YAML allows
-ops teams to modify automation without touching source code.
+ops teams to modify automation without touching source code. Additionally,
+YAML's hierarchical structure matches the natural flow of multi-agent
+workflows and task dependencies.
 
 ### II. Ansible-Compatible CLI
 The CLI MUST mirror `ansible-playbook` conventions so users familiar with
@@ -43,6 +25,10 @@ Ansible can adopt `crewai-playbook` with zero learning curve:
 - `--limit` — target specific "hosts" (crew instances)
 - `-e` / `--extra-vars` — override variables at runtime
 - `-v` — verbose mode (stackable: -vvv)
+- `-i` / `--inventory` — override default inventory path
+
+Rationale: User familiarity reduces adoption friction. Standardized
+interfaces help teams transition smoothly between automation tools.
 
 ### III. Separation of Concerns
 Configuration MUST be separated from orchestration logic:
@@ -55,6 +41,10 @@ Configuration MUST be separated from orchestration logic:
 - **Secrets**: API keys, tokens via environment variables or encrypted vault
   files — never in playbook YAML.
 
+Rationale: Clean separation isolates concerns, promotes reusability, and
+enables different teams or personas to manage elements independently
+without risking conflicts or leaks.
+
 ### IV. Idempotency & Guardrails
 Every playbook run MUST be safe to re-run. The tool MUST enforce:
 - **Guardrails**: Built-in output validation (length, format, content checks)
@@ -65,6 +55,11 @@ Every playbook run MUST be safe to re-run. The tool MUST enforce:
 - **Dry-run diff** (`--check --diff`): Show expected output changes.
 - **Handlers**: Only trigger follow-up actions (e.g., summarization, alerts)
   when preceding task output actually changed.
+- **Retry and delay**: Task execution handles retries with delay
+  (for rate-limited APIs or transient failures).
+
+Rationale: Safe, repeatable workflows enhance reliability and reduce error
+propagation in automated agent systems.
 
 ### V. Convention over Configuration
 Sensible defaults MUST ship out-of-the-box:
@@ -75,6 +70,9 @@ Sensible defaults MUST ship out-of-the-box:
 - Users opt out explicitly, not configure from scratch.
 - `crewai-playbook init` SHOULD scaffold a complete project with standard
   directory layout, sample playbook, and inventory skeleton.
+
+Rationale: Reduces complexity, lowers initial learning curve, and enables
+fast prototyping with well-defined, optimized default configurations.
 
 ## Technical Constraints
 
@@ -119,4 +117,4 @@ Compliance: All PRs MUST reference the relevant constitution principle(s).
 
 Use `AGENTS.md` for runtime development guidance.
 
-**Version**: 1.0.0 | **Ratified**: 2026-05-29 | **Last Amended**: 2026-05-29
+**Version**: 1.0.1 | **Ratified**: 2026-05-29 | **Last Amended**: 2026-05-29
