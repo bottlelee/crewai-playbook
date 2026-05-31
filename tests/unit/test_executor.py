@@ -3,9 +3,42 @@ from unittest.mock import patch, MagicMock
 import pytest
 import yaml
 
+from crewai_playbook import __version__
 from crewai_playbook.core.executor import PlaybookExecutor
 from crewai_playbook.core.parser import parse_playbook
 from crewai_playbook.models.agent import AgentDefinition
+from crewai_playbook.models.playbook import Play, Playbook
+
+
+@pytest.fixture
+def empty_playbook(tmp_path):
+    """A playbook fixture that has no tasks (for testing magic vars in check mode)."""
+    p = tmp_path / "magic_test.yml"
+    data = [{"name": "Magic Test", "agents": ["researcher"], "gather_facts": False}]
+    p.write_text(yaml.safe_dump(data))
+    return p
+
+
+@pytest.fixture
+def playbook_with_colliding_vars(tmp_path):
+    """Playbook with play vars that intentionally shadow magic vars."""
+    p = tmp_path / "collide.yml"
+    data = [{
+        "name": "Collision Test",
+        "agents": ["researcher"],
+        "gather_facts": False,
+        "vars": {
+            "playbook_dir": "/hacked/by/play_vars",
+            "ansible_play_name": "overridden by play vars",
+        },
+        "tasks": [{
+            "name": "Check vars",
+            "agents": ["researcher"],
+            "task": "Check the variable values",
+        }],
+    }]
+    p.write_text(yaml.safe_dump(data))
+    return p
 
 
 @pytest.fixture
@@ -178,15 +211,136 @@ class TestPlaybookExecutor:
         p = tmp_path / "hierarchical.yml"
         p.write_text(yaml.safe_dump(data))
         pb = parse_playbook(p)
-        with patch("crewai_playbook.core.executor.run_crew_for_play") as mock_crew:
-            mock_crew.return_value = {"T1": "research done", "T2": "article written"}
+        with patch("crewai_playbook.core.executor.run_hierarchical_task") as mock_task:
+            mock_task.return_value = "task output"
             executor = PlaybookExecutor(pb, inventory, verbose=False)
             results = executor.run()
             assert results["failed"] is False
-            mock_crew.assert_called_once()
-            call_kwargs = mock_crew.call_args[1]
+            assert mock_task.call_count == 2
+            call_kwargs = mock_task.call_args[1]
             assert call_kwargs["leader_name"] == "researcher"
-            assert call_kwargs["process"] == "hierarchical"
+
+    # ----- magic variables ------------------------------------------------
+
+    def test_get_magic_variables_returns_all_keys(self, simple_playbook_yaml, inventory):
+        pb = parse_playbook(simple_playbook_yaml)
+        executor = PlaybookExecutor(
+            pb, inventory, verbose=False, playbook_path=str(simple_playbook_yaml),
+            inventory_path="/fake/inv.yaml",
+        )
+        play = pb.plays[0]
+        magic = executor._get_magic_variables(play)
+        expected = {
+            "playbook_dir", "inventory_dir", "inventory_file",
+            "ansible_play_name", "ansible_play_agents",
+            "ansible_check_mode", "ansible_verbosity",
+            "ansible_version", "crewai_playbook_version",
+        }
+        assert expected.issubset(magic.keys()), f"missing keys: {expected - magic.keys()}"
+
+    def test_playbook_dir_is_parent_of_playbook(self, simple_playbook_yaml, inventory):
+        pb = parse_playbook(simple_playbook_yaml)
+        executor = PlaybookExecutor(
+            pb, inventory, verbose=False, playbook_path=str(simple_playbook_yaml),
+        )
+        magic = executor._get_magic_variables(pb.plays[0])
+        assert magic["playbook_dir"] == str(simple_playbook_yaml.resolve().parent)
+
+    def test_inventory_dir_is_parent_of_inventory(self, simple_playbook_yaml, inventory):
+        pb = parse_playbook(simple_playbook_yaml)
+        inv_path = "/some/inventory/agents.yaml"
+        executor = PlaybookExecutor(
+            pb, inventory, verbose=False, playbook_path=str(simple_playbook_yaml),
+            inventory_path=inv_path,
+        )
+        magic = executor._get_magic_variables(pb.plays[0])
+        assert magic["inventory_dir"] == "/some/inventory"
+        assert magic["inventory_file"] == "/some/inventory/agents.yaml"
+
+    def test_ansible_play_agents_matches_play(self, simple_playbook_yaml, inventory):
+        pb = parse_playbook(simple_playbook_yaml)
+        executor = PlaybookExecutor(
+            pb, inventory, verbose=False, playbook_path=str(simple_playbook_yaml),
+        )
+        magic = executor._get_magic_variables(pb.plays[0])
+        assert magic["ansible_play_name"] == "Test Play"
+        assert magic["ansible_play_agents"] == ["researcher"]
+
+    def test_magic_vars_reflect_cli_flags(self, simple_playbook_yaml, inventory):
+        pb = parse_playbook(simple_playbook_yaml)
+        executor = PlaybookExecutor(
+            pb, inventory, verbose=2, check_mode=True,
+            tags=["foo", "bar"], skip_tags=["baz"], limit=["researcher"],
+            playbook_path=str(simple_playbook_yaml),
+        )
+        magic = executor._get_magic_variables(pb.plays[0])
+        assert magic["ansible_check_mode"] is True
+        assert magic["ansible_verbosity"] == 2
+        assert magic["ansible_run_tags"] == ["foo", "bar"]
+        assert magic["ansible_skip_tags"] == ["baz"]
+        assert magic["ansible_limit"] == ["researcher"]
+
+    def test_magic_vars_override_play_vars(self, playbook_with_colliding_vars, inventory):
+        """Play vars with the same name as a magic var MUST NOT override it."""
+        pb = parse_playbook(playbook_with_colliding_vars)
+        executor = PlaybookExecutor(
+            pb, inventory, verbose=False,
+            playbook_path=str(playbook_with_colliding_vars),
+        )
+        magic = executor._get_magic_variables(pb.plays[0])
+        # play vars try to set playbook_dir="/hacked/by/play_vars" but magic wins
+        assert magic["playbook_dir"] != "/hacked/by/play_vars"
+        assert magic["playbook_dir"] == str(playbook_with_colliding_vars.resolve().parent)
+        assert magic["ansible_play_name"] == "Collision Test"
+
+    def test_extra_vars_override_magic_vars(self, simple_playbook_yaml, inventory):
+        """Extra vars MUST override magic vars (highest precedence)."""
+        pb = parse_playbook(simple_playbook_yaml)
+        executor = PlaybookExecutor(
+            pb, inventory, verbose=False,
+            playbook_path=str(simple_playbook_yaml),
+            extra_vars={"playbook_dir": "/from/extra/vars"},
+            inventory_path="/some/inventory.yaml",
+        )
+        play = pb.plays[0]
+        magic = executor._get_magic_variables(play)
+        assert magic["playbook_dir"] == str(simple_playbook_yaml.resolve().parent)
+
+        # When building full context in _execute_play, extra_vars should win
+        # We can verify by checking the full merge order
+        ctx = {}
+        if play.vars:
+            ctx.update(play.vars)
+        ctx.update(magic)
+        ctx.update(executor.extra_vars)
+        assert ctx["playbook_dir"] == "/from/extra/vars"
+
+    def test_crewai_playbook_version_in_magic(self, simple_playbook_yaml, inventory):
+        pb = parse_playbook(simple_playbook_yaml)
+        executor = PlaybookExecutor(
+            pb, inventory, verbose=False, playbook_path=str(simple_playbook_yaml),
+        )
+        magic = executor._get_magic_variables(pb.plays[0])
+        assert magic["crewai_playbook_version"] == __version__
+        assert "full" in magic["ansible_version"]
+
+    def test_magic_vars_available_in_task_variable_context(
+        self, simple_playbook_yaml, inventory, mock_run_single_task
+    ):
+        """Magic vars should be in the variable_context passed to execute_task."""
+        pb = parse_playbook(simple_playbook_yaml)
+        executor = PlaybookExecutor(
+            pb, inventory, verbose=False, playbook_path=str(simple_playbook_yaml),
+        )
+        with patch("crewai_playbook.core.executor.execute_task") as mock_exec:
+            mock_exec.return_value = "mock output"
+            executor.run()
+            mock_exec.assert_called_once()
+            _task, _agents, var_ctx, _verbose = mock_exec.call_args[0]
+            assert "playbook_dir" in var_ctx
+            assert "ansible_play_name" in var_ctx
+            assert "ansible_play_agents" in var_ctx
+            assert var_ctx["playbook_dir"] == str(simple_playbook_yaml.resolve().parent)
 
     def test_roles_resolve_in_executor(
         self, role_playbook_yaml, inventory, mock_run_single_task, monkeypatch

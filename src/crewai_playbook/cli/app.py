@@ -4,8 +4,10 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import click
 import typer
 from rich.console import Console
+from typer.core import TyperGroup
 
 from crewai_playbook import __version__
 from crewai_playbook.cli import flags
@@ -18,8 +20,26 @@ from crewai_playbook.utils.errors import (
     ParseError,
 )
 
+
+class _DefaultGroup(TyperGroup):
+    """Typer Group that falls back to the ``run`` command when the first
+    positional argument does not match any registered subcommand."""
+
+    default_cmd_name = "run"
+
+    def resolve_command(self, ctx, args):
+        if args and not args[0].startswith("-"):
+            cmd_name = click.utils.make_str(args[0])
+            if cmd_name not in self.commands:
+                cmd = self.get_command(ctx, self.default_cmd_name)
+                if cmd is not None:
+                    return self.default_cmd_name, cmd, list(args)
+        return super().resolve_command(ctx, args)
+
+
 app = typer.Typer(
     name="crewai-playbook",
+    cls=_DefaultGroup,
     help="Ansible-compatible YAML playbook orchestrator for crewAI agents.",
     no_args_is_help=True,
 )
@@ -128,6 +148,8 @@ def run(
             skip_tags=skip_tags,
             limit=limit,
             extra_vars=extra_vars_dict,
+            playbook_path=str(pb_path),
+            inventory_path=str(inv_path),
         )
 
         results = executor.run()

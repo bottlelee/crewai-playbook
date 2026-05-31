@@ -1,0 +1,126 @@
+# =============================================================================
+# REST API Development Pipeline
+# =============================================================================
+# Build a production-ready REST API with research, implementation,
+# testing, review, and documentation — each handled by the right
+# Journey to the West specialist.
+#
+# Run:  crewai-playbook run demos/api-development.yml
+#       crewai-playbook run demos/api-development.yml -e api_name=user-service
+# =============================================================================
+
+- name: "Build a REST API Service"
+  agents:
+    - tang_sanzang
+    - "@wukong"
+    - zhu_bajie
+    - sha_wujing
+    - bai_longma
+  process: hierarchical
+  gather_facts: true
+  vars:
+    api_name: "user-service"
+    api_dir: "{{ playbook_dir }}/output/api"
+    auth_method: "JWT"
+    db: "PostgreSQL"
+
+  tasks:
+    # --- Phase 1: Research (Sha Wujing) ---
+    - name: "Research API best practices"
+      agents:
+        - sha_wujing
+      task: >
+        Research REST API design best practices for 2026. Cover: naming
+        conventions, pagination, filtering, error response format, rate
+        limiting, and authentication patterns. Output a concise style guide.
+      dest: "{{ api_dir }}/docs/style-guide.md"
+      register: style_guide
+
+    # --- Phase 2: Database (Wukong Data) ---
+    - name: "Design database schema"
+      agents:
+        - wukong_data
+      task: >
+        Design a PostgreSQL schema for a "{{ api_name }}" service.
+        Include tables for: users, roles, permissions, and audit_log.
+        Provide CREATE TABLE statements with proper indexes and constraints.
+        Follow the style guide above.
+      src: "{{ api_dir }}/docs/style-guide.md"
+      dest: "{{ api_dir }}/db/migrations/001_init.sql"
+
+    # --- Phase 3: Backend (Wukong Backend) ---
+    - name: "Implement API endpoints"
+      agents:
+        - wukong_backend
+      task: >
+        Implement the "{{ api_name }}" REST API. Include:
+        - GET/POST/PUT/DELETE for /users
+        - POST /auth/login and /auth/register
+        - Role-based access control middleware
+        - Structured error handling (RFC 7807)
+        - OpenAPI schema definition
+        Follow the style guide. Use {{ db }} as database.
+      src: "{{ api_dir }}/docs/style-guide.md"
+      dest: "{{ api_dir }}/src/app.py"
+
+    # --- Phase 4: Tests (Wukong Backend again - different task) ---
+    - name: "Write API tests"
+      agents:
+        - wukong_backend
+      task: >
+        Write comprehensive pytest tests for the API. Include:
+        - Unit tests for each endpoint
+        - Integration tests for auth flow
+        - Edge cases: invalid input, missing auth, role violations
+        - Test fixtures and mock data
+      dest: "{{ api_dir }}/tests/test_api.py"
+
+    # --- Phase 5: Review (Zhu Bajie) ---
+    - name: "Review API implementation"
+      agents:
+        - zhu_bajie
+      task: >
+        Review the API code for: security vulnerabilities, REST compliance,
+        error handling completeness, and code quality. Be the devil's
+        advocate — find every flaw no matter how small. Rate overall quality.
+      src: "{{ api_dir }}/src/app.py"
+      dest: "{{ api_dir }}/reviews/api-review.md"
+      register: api_review
+
+    - name: "Review database schema"
+      agents:
+        - zhu_bajie
+      task: >
+        Review the database schema for: missing indexes, foreign key issues,
+        normalization problems, and audit trail completeness.
+      src: "{{ api_dir }}/db/migrations/001_init.sql"
+      dest: "{{ api_dir }}/reviews/db-review.md"
+
+    # --- Phase 6: Documentation (Bai Longma) ---
+    - name: "Write OpenAPI documentation"
+      agents:
+        - bai_longma
+      task: >
+        Generate a complete OpenAPI 3.1 specification for the API based on
+        the implementation. Include: all endpoints, request/response schemas,
+        authentication requirements, and example values.
+      dest: "{{ api_dir }}/docs/openapi.yaml"
+
+    - name: "Write README"
+      agents:
+        - bai_longma
+      task: >
+        Write a developer-friendly README for the API. Include: setup
+        instructions, authentication guide, endpoint reference, error codes,
+        and contribution guidelines.
+      dest: "{{ api_dir }}/README.md"
+
+  handlers:
+    - name: "NotifyDone"
+      tasks:
+        - name: "Summary"
+          agents:
+            - bai_longma
+          task: >
+            Summarize what was built for {{ api_name }}.
+            List all files created and key decisions made.

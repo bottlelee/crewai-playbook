@@ -1,0 +1,36 @@
+```yaml
+version: '3'
+
+services:
+
+  webapp:
+    build: .
+    ports:
+      - "80:80"
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=postgres://user:password@db/database
+
+  db:
+    image: postgres
+    volumes:
+      - ./sql:/docker-entrypoint-initdb.d
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=database
+
+  nginx:
+    image: nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - webapp
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+    restart: always
+
+volumes:
+  sql:
+```

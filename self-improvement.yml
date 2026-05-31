@@ -1,0 +1,144 @@
+# =============================================================================
+# Self-Improvement Pipeline
+# =============================================================================
+# Each task reads a source file via `src`, the agent fixes it, and `dest`
+# overwrites the original — true self-improvement one file at a time.
+#
+# Run:  crewai-playbook run self-improvement.yml
+# =============================================================================
+
+- name: "Self-Improvement: Analyze, Fix, Verify, Document"
+  agents:
+    - tang_sanzang
+    - "@wukong"
+    - zhu_bajie
+    - bai_longma
+  process: hierarchical
+  gather_facts: true
+
+  vars:
+    project_root: "{{ playbook_dir }}"
+    src_dir: "{{ project_root }}/src/crewai_playbook"
+
+  tasks:
+
+    # =========================================================================
+    # PHASE 1: Static analysis — audit the full codebase
+    # =========================================================================
+    - name: "Analyze codebase for issues"
+      agents:
+        - wukong_backend
+      task: >
+        Audit the Python codebase at {{ project_root }} for:
+        unused imports, missing type annotations, overly complex
+        functions (>15 lines), security issues, and PEP 8 violations.
+        Read the key source files in {{ src_dir }}, then produce a
+        prioritized report with exact file:line references.
+      dest: "{{ project_root }}/.crewai-review/analysis/report.md"
+      register: analysis_report
+
+    # =========================================================================
+    # PHASE 2: Fix each domain file — read via `src`, write via `dest`
+    #          Each task overwrites the source file with the agent's fix.
+    # =========================================================================
+    - name: "Fix core models"
+      agents:
+        - wukong_backend
+      task: >
+        Read the analysis report and the source file below.
+        Apply ALL fixes relevant to this file: fix imports,
+        add type annotations, simplify complex code, fix PEP 8.
+        Output the COMPLETE corrected file content.
+      src: "{{ src_dir }}/models/agent.py"
+      dest: "{{ src_dir }}/models/agent.py"
+
+    - name: "Fix core executor"
+      agents:
+        - wukong_backend
+      task: >
+        Read the analysis report and the source file below.
+        Apply ALL fixes relevant to this file: fix imports,
+        add type annotations, simplify complex code, fix PEP 8.
+        Output the COMPLETE corrected file content.
+      src: "{{ src_dir }}/core/executor.py"
+      dest: "{{ src_dir }}/core/executor.py"
+
+    - name: "Fix variable resolution"
+      agents:
+        - wukong_backend
+      task: >
+        Read the analysis report and the source file below.
+        Apply ALL fixes relevant to this file: fix imports,
+        add type annotations, simplify complex code, fix PEP 8.
+        Output the COMPLETE corrected file content.
+      src: "{{ src_dir }}/utils/vars.py"
+      dest: "{{ src_dir }}/utils/vars.py"
+
+    - name: "Fix task modules"
+      agents:
+        - wukong_backend
+      task: >
+        Read the analysis report and the source file below.
+        Apply ALL fixes relevant to this file: fix imports,
+        add type annotations, simplify complex code, fix PEP 8.
+        Output the COMPLETE corrected file content.
+      src: "{{ src_dir }}/modules/task.py"
+      dest: "{{ src_dir }}/modules/task.py"
+
+    # =========================================================================
+    # PHASE 3: Test verification — check no tests break
+    # =========================================================================
+    - name: "Verify tests still pass"
+      agents:
+        - wukong_backend
+      task: >
+        Read the modified source files and the test suite. Check
+        every test file that imports or references the modified
+        code. For each test, reason through whether the changes
+        would cause a failure. Output a PASS/FAIL result per
+        test file, with explanations.
+      src: "{{ src_dir }}/tests/"
+      dest: "{{ project_root }}/.crewai-review/analysis/test-verification.md"
+      register: test_check
+
+    # =========================================================================
+    # PHASE 4: Review fixes
+    # =========================================================================
+    - name: "Review all fixes"
+      agents:
+        - zhu_bajie
+      task: >
+        Read the analysis report, test verification, then read
+        each modified source file. Check: do the fixes address
+        the issues? Would any tests break? Code style consistent?
+        Output a detailed review with per-file verdicts
+        (APPROVED/REJECTED).
+      src: "{{ src_dir }}/models/agent.py"
+      dest: "{{ project_root }}/.crewai-review/analysis/verification.md"
+      register: verification
+
+    # =========================================================================
+    # PHASE 5: Document
+    # =========================================================================
+    - name: "Document changes"
+      agents:
+        - bai_longma
+      task: >
+        Read the analysis report, test verification, and code
+        review, then write a changelog: which files were changed,
+        what issues were fixed, test results, and any follow-up
+        items.
+      src: "{{ project_root }}/.crewai-review/analysis/verification.md"
+      dest: "{{ project_root }}/.crewai-review/CHANGELOG.md"
+
+    # =========================================================================
+    # PHASE 5: Final verdict
+    # =========================================================================
+    - name: "Final summary"
+      agents:
+        - tang_sanzang
+      task: >
+        Review all pipeline outputs. Give verdict: PASS,
+        PASS_WITH_NOTES, or FAIL. Include a one-paragraph summary.
+      src: "{{ project_root }}/.crewai-review/analysis/verification.md"
+      dest: "{{ project_root }}/.crewai-review/VERDICT.md"

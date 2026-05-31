@@ -1,0 +1,149 @@
+# =============================================================================
+# Documentation & Memory Pipeline
+# =============================================================================
+# A documentation-first workflow where Bai Longma maintains the team's
+# shared memory. Every decision, every review, every fact gets recorded
+# so the team always knows what happened and why.
+#
+# Run:  crewai-playbook run demos/documentation-memory.yml
+#       crewai-playbook run demos/documentation-memory.yml -e project=auth-service
+# =============================================================================
+
+- name: "Build Project with Full Documentation Memory"
+  agents:
+    - tang_sanzang
+    - wukong_backend
+    - wukong_data
+    - zhu_bajie
+    - sha_wujing
+    - bai_longma
+  process: sequential
+  vars:
+    project: "auth-service"
+    project_dir: "{{ playbook_dir }}/output/docs-memory"
+    tech_stack: "Python + FastAPI + PostgreSQL"
+
+  tasks:
+    # --- Phase 1: Bai Longma sets up the documentation structure ---
+    - name: "Initialize project documentation"
+      agents:
+        - bai_longma
+      task: >
+        Create the documentation structure for the {{ project }} project.
+        Generate: README.md (template), ARCHITECTURE.md (template),
+        DECISIONS.md (empty, for recording decisions), and
+        CHANGELOG.md (initialized). This is the team's memory backbone.
+      dest: "{{ project_dir }}/docs/init.md"
+
+    # --- Phase 2: Sha Wujing researches ---
+    - name: "Research authentication patterns"
+      agents:
+        - sha_wujing
+      task: >
+        Research modern authentication patterns for {{ tech_stack }}.
+        Cover: JWT best practices, refresh token rotation, OAuth2 integration,
+        session management, and security considerations. Output a research report.
+      dest: "{{ project_dir }}/docs/research-auth.md"
+      register: auth_research
+
+    # --- Phase 3: Tang Sanzang makes decisions ---
+    - name: "Architecture decisions"
+      agents:
+        - tang_sanzang
+      task: >
+        Based on the authentication research, make architecture decisions for
+        the {{ project }}:
+        - Which auth method to use (JWT, session, OAuth2)?
+        - Token storage strategy (DB, Redis, JWT-only)?
+        - Password hashing algorithm?
+        - Rate limiting approach?
+        Explain your reasoning for each decision.
+      src: "{{ project_dir }}/docs/research-auth.md"
+      dest: "{{ project_dir }}/docs/architecture-decisions.md"
+      register: architecture_decisions
+
+    # --- Phase 4: Bai Longma records decisions ---
+    - name: "Record decisions in memory"
+      agents:
+        - bai_longma
+      task: >
+        Based on the architecture decisions, update the DECISIONS.md file.
+        For each decision, record: the choice, alternatives considered,
+        rationale, and date. This becomes the team's authoritative
+        source of truth for why things were built a certain way.
+      src: "{{ project_dir }}/docs/architecture-decisions.md"
+      dest: "{{ project_dir }}/DECISIONS.md"
+
+    # --- Phase 5: Wukong implements ---
+    - name: "Implement authentication service"
+      agents:
+        - wukong_backend
+      task: >
+        Implement the {{ project }} authentication service based on the
+        architecture decisions. Include: user registration, login,
+        token refresh, and password reset. Follow the decisions document exactly.
+      src: "{{ project_dir }}/DECISIONS.md"
+      dest: "{{ project_dir }}/src/auth.py"
+
+    # --- Phase 6: Bajie reviews ---
+    - name: "Security review"
+      agents:
+        - zhu_bajie
+      task: >
+        Review the authentication service for security:
+        - Is JWT implementation correct?
+        - Are tokens stored securely?
+        - Is password hashing done right?
+        - Are there any injection vulnerabilities?
+        - Is rate limiting implemented?
+        Reference the DECISIONS.md to verify the implementation matches.
+      src: "{{ project_dir }}/DECISIONS.md"
+      dest: "{{ project_dir }}/reviews/security-review.md"
+      register: security_review
+
+    # --- Phase 7: Bai Longma documents the final state ---
+    - name: "Write final documentation"
+      agents:
+        - bai_longma
+      task: >
+        Generate comprehensive documentation for the {{ project }}:
+        1. README.md with setup instructions
+        2. API reference for all endpoints
+        3. Architecture overview diagram (text-based)
+        4. Security considerations
+        Reference all previous decisions and reviews.
+      dest: "{{ project_dir }}/docs/final-docs.md"
+
+    - name: "Update team memory"
+      agents:
+        - bai_longma
+      task: >
+        Update the CHANGELOG.md with everything that was built in this session.
+        Record: what was decided, what was implemented, what issues were found
+        in review, and what the final state is. This is the team's complete
+        memory of the project.
+      dest: "{{ project_dir }}/CHANGELOG.md"
+
+    - name: "Final team memory snapshot"
+      agents:
+        - bai_longma
+      task: >
+        Create a TEAM_MEMORY.md file that captures the complete journey:
+        - Who did what
+        - Key decisions and their rationale
+        - Issues found and resolved
+        - Current project status
+        - Next steps for the team
+        This file is the team's collective memory — the scriptures
+        that Bai Longma carries on his back.
+      dest: "{{ project_dir }}/TEAM_MEMORY.md"
+
+  handlers:
+    - name: "NotifyDone"
+      tasks:
+        - name: "Memory confirmation"
+          agents:
+            - bai_longma
+          task: >
+            All documentation and memory records for {{ project }} are complete.
+            The team's scriptures are safely recorded.

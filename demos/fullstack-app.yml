@@ -1,0 +1,134 @@
+# =============================================================================
+# Full-Stack Web Application Build
+# =============================================================================
+# The entire Journey to the West crew builds a web application from scratch.
+# Tang Sanzang delegates; Wukong avatars handle each layer; Bajie reviews;
+# Wujing researches; Bai Longma documents.
+#
+# Run:  crewai-playbook run demos/fullstack-app.yml
+#       crewai-playbook run demos/fullstack-app.yml -e project_name=my_app
+# =============================================================================
+
+- name: "Build a Full-Stack Web Application"
+  agents:
+    - tang_sanzang
+    - "@wukong"
+    - zhu_bajie
+    - sha_wujing
+    - bai_longma
+  process: hierarchical
+  gather_facts: true
+  vars:
+    project_name: "web_app"
+    project_dir: "{{ playbook_dir }}/output/fullstack"
+    app_title: "Task Board - Project Management"
+
+  tasks:
+    # --- Sha Wujing researches the tech stack ---
+    - name: "Research tech stack"
+      agents:
+        - sha_wujing
+      task: >
+        Research and recommend a modern full-stack web app stack for "{{ app_title }}".
+        Recommend: framework, CSS library, database, ORM, and deployment method.
+        List pros/cons for each choice. Output a clear tech-stack decision document.
+      dest: "{{ project_dir }}/docs/tech-stack.md"
+      register: tech_stack
+
+    # --- All Wukong avatars work in parallel (hierarchical mode) ---
+    - name: "Design database schema"
+      agents:
+        - wukong_data
+      task: >
+        Based on the tech stack recommendation, design a PostgreSQL schema for
+        a task board application. Include tables for: users, projects, tasks,
+        labels, and comments. Provide CREATE TABLE statements with foreign keys.
+      dest: "{{ project_dir }}/db/schema.sql"
+      register: db_schema
+
+    - name: "Build backend API"
+      agents:
+        - wukong_backend
+      task: >
+        Implement a RESTful API for a task board app using the chosen backend
+        framework. Include endpoints for: CRUD on tasks, user auth (JWT),
+        and project management. Provide clean, well-structured code.
+      dest: "{{ project_dir }}/backend/app.py"
+
+    - name: "Build frontend components"
+      agents:
+        - wukong_frontend
+      task: >
+        Build a responsive task board UI using the chosen frontend framework.
+        Include: task list view, task detail modal, drag-and-drop columns,
+        and a project sidebar. Use the CSS library recommended in the tech stack.
+      dest: "{{ project_dir }}/frontend/components.html"
+
+    - name: "Set up deployment"
+      agents:
+        - wukong_devops
+      task: >
+        Create Docker configuration for the full-stack app: Dockerfile for the
+        backend, docker-compose.yml with PostgreSQL and the app, and a basic
+        CI pipeline (GitHub Actions) for linting, testing, and deployment.
+      dest: "{{ project_dir }}/devops/docker-compose.yml"
+
+    # --- Zhu Bajie reviews everything ---
+    - name: "Review backend code"
+      agents:
+        - zhu_bajie
+      task: >
+        Review the backend API code for: error handling, security (SQL injection,
+        JWT validation), code organization, and RESTful design. Be thorough but
+        fair. List critical issues, suggestions, and things done well.
+      src: "{{ project_dir }}/backend/app.py"
+      dest: "{{ project_dir }}/reviews/backend-review.md"
+      register: backend_review
+
+    - name: "Review frontend code"
+      agents:
+        - zhu_bajie
+      task: >
+        Review the frontend components for: accessibility (ARIA), responsive
+        design, state management, and component structure. Be thorough.
+        List critical issues, suggestions, and things done well.
+      src: "{{ project_dir }}/frontend/components.html"
+      dest: "{{ project_dir }}/reviews/frontend-review.md"
+      register: frontend_review
+
+    - name: "Review database schema"
+      agents:
+        - zhu_bajie
+      task: >
+        Review the database schema for: normalization, indexing, foreign key
+        constraints, and potential performance issues. List findings.
+      src: "{{ project_dir }}/db/schema.sql"
+      dest: "{{ project_dir }}/reviews/db-review.md"
+      register: db_review
+
+    # --- Bai Longma documents everything ---
+    - name: "Write project documentation"
+      agents:
+        - bai_longma
+      task: >
+        Based on all reviews and the codebase, write a complete README.md for the
+        project. Include: project overview, setup instructions, API documentation,
+        database schema overview, and contributor guidelines.
+      dest: "{{ project_dir }}/README.md"
+
+    - name: "Record team memory"
+      agents:
+        - bai_longma
+      task: >
+        Record the team's decisions and rationale into a DECISIONS.md file.
+        Document: why each tech was chosen, what the reviewers recommended,
+        and what tradeoffs were made. This is the team's shared memory.
+      dest: "{{ project_dir }}/docs/DECISIONS.md"
+
+  handlers:
+    - name: "NotifyDone"
+      tasks:
+        - name: "Log completion"
+          agents:
+            - bai_longma
+          task: "All build tasks completed for {{ project_name }}. Documenting final status."

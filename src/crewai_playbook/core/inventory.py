@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fnmatch
 from pathlib import Path
 from typing import Dict, List
 
@@ -48,8 +49,21 @@ def load_inventory(path: str | Path) -> Dict[str, AgentDefinition]:
 def resolve_agents(
     names: List[str], inventory: Dict[str, AgentDefinition]
 ) -> Dict[str, AgentDefinition]:
-    """Resolve a list of agent names (which may include ``@group`` entries)
-    into a flat dict of agent definitions."""
+    """Resolve a list of agent names into a flat dict of agent definitions.
+
+    Supported entry formats:
+
+    *   Exact name: ``tang_sanzang``
+    *   Group reference: ``@wukong`` (all agents in the ``wukong`` group)
+    *   Glob pattern: ``wukong_*``, ``*_backend``, ``?`` (Unix-style wildcards)
+
+    Glob patterns use Python's ``fnmatch`` module:
+
+    *   ``*`` matches everything
+    *   ``?`` matches any single character
+    *   ``[seq]`` matches any character in *seq*
+    *   ``[!seq]`` matches any character not in *seq*
+    """
     resolved: Dict[str, AgentDefinition] = {}
     for entry in names:
         if entry.startswith("@"):
@@ -61,6 +75,16 @@ def resolve_agents(
                     found = True
             if not found:
                 raise InventoryError(f"no agents found in group '@{group}'")
+        elif any(c in entry for c in "*?["):
+            matched = False
+            for name, defn in inventory.items():
+                if fnmatch.fnmatch(name, entry):
+                    resolved[name] = defn
+                    matched = True
+            if not matched:
+                raise InventoryError(
+                    f"no agents matched pattern '{entry}'"
+                )
         else:
             if entry not in inventory:
                 raise InventoryError(

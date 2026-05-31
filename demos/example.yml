@@ -15,7 +15,7 @@
   gather_facts: true
   process: hierarchical         # manager coordinates tasks
   vars:
-    topic: "Artificial Intelligence"
+    topic: "What is CrewAI and how does it work?"
 
   tasks:
     - name: "Research the topic"
@@ -24,7 +24,7 @@
       task: >
         Research the topic "{{ topic }}" and provide key findings,
         recent developments, and expert opinions.
-      dest: "{{ playbook_dir }}/output/research.txt"
+      dest: "{{ playbook_dir }}/output/{{ topic }}/research.md"
 
     - name: "Write article"
       agents:
@@ -32,18 +32,27 @@
       task: >
         Based on the research findings of "{{ topic }}",
         write a well-structured article.
-      src: "{{ playbook_dir }}/output/research.txt"
-      dest: "{{ playbook_dir }}/output/article.txt"
+      src: "{{ playbook_dir }}/output/{{ topic }}/research.md"
+      dest: "{{ playbook_dir }}/output/{{ topic }}/article.md"
 
     - name: "Review article"
       agents:
         - reviewer
       task: >
         Review the article about {{ topic }} for quality and completeness.
-      src: "{{ playbook_dir }}/output/article.txt"
-      dest: "{{ playbook_dir }}/output/review.txt"
+      src: "{{ playbook_dir }}/output/{{ topic }}`/article.md"
+      dest: "{{ playbook_dir }}/output/{{ topic }}/review.md"
       notify:
         - LogCompletion
+
+    - name: "Enrich article"
+      agents:
+        - writer
+      task: >
+        Based on the review of "{{ topic }}",
+        Enrich the article.
+      src: "{{ playbook_dir }}/output/{{ topic }}/review.md"
+      dest: "{{ playbook_dir }}/output/{{ topic }}/article.md"
 
   handlers:
     - name: "LogCompletion"
@@ -54,29 +63,3 @@
           task: "All tasks completed successfully for {{ topic }}"
 
 
-# ── Block / Rescue / Always Example ──────────────────────────────────────────
-- name: "Error Handling Demo"
-  agents:
-    - researcher
-    - writer
-  gather_facts: false
-  tasks:
-    - block:
-        - name: "Attempt primary research"
-          agents:
-            - researcher
-          task: "Try primary research method"
-          register: primary_result
-      rescue:
-        - name: "Fallback research"
-          agents:
-            - researcher
-          task: "Use fallback research method"
-          register: fallback_result
-      always:
-        - name: "Log outcome"
-          agents:
-            - writer
-          task: >
-            Research completed.
-            Success: {{ primary_result_succeeded | default(false) }}

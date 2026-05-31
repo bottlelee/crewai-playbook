@@ -12,6 +12,7 @@ from crewai_playbook.models.playbook import (
     Playbook,
     Task,
     Role,
+    VarPrompt,
 )
 from crewai_playbook.utils.errors import ParseError
 from crewai_playbook.utils.vars import collect_variable_refs
@@ -66,6 +67,10 @@ def _parse_play(raw: Dict[str, Any], index: int) -> Play:
     if "handlers" in raw:
         handlers = _parse_handler_list(raw["handlers"], index)
 
+    vars_prompt: Optional[List[VarPrompt]] = None
+    if "vars_prompt" in raw:
+        vars_prompt = _parse_vars_prompt(raw["vars_prompt"], index)
+
     raw_process = raw.get("process", "sequential")
     if raw_process not in ("sequential", "hierarchical"):
         raise ParseError(
@@ -76,6 +81,7 @@ def _parse_play(raw: Dict[str, Any], index: int) -> Play:
         name=raw["name"],
         agents=raw["agents"],
         vars=raw.get("vars"),
+        vars_prompt=vars_prompt,
         tasks=tasks,
         roles=roles,
         handlers=handlers,
@@ -189,6 +195,27 @@ def _parse_handler_list(raw: list, play_index: int) -> List[Handler]:
     return handlers
 
 
+def _parse_vars_prompt(raw: Any, play_index: int) -> List[VarPrompt]:
+    if not isinstance(raw, list):
+        raise ParseError(
+            f"play #{play_index} 'vars_prompt' must be a list"
+        )
+    prompts: List[VarPrompt] = []
+    for i, item in enumerate(raw):
+        if not isinstance(item, dict) or "name" not in item:
+            raise ParseError(
+                f"play #{play_index} vars_prompt #{i + 1} must have a 'name'"
+            )
+        prompts.append(VarPrompt(
+            name=item["name"],
+            prompt=item.get("prompt"),
+            default=item.get("default"),
+            private=item.get("private", False),
+            choices=_ensure_list(item.get("choices")),
+        ))
+    return prompts
+
+
 def _require_keys(d: Dict[str, Any], keys: set[str]) -> set[str]:
     return keys - set(d.keys())
 
@@ -215,6 +242,13 @@ def syntax_check(path: str | Path) -> List[str]:
     known_vars = {
         "facts", "hostvars", "groups", "inventory_hostname",
         "ansible_play_name", "ansible_play_hosts",
+        # crewai-playbook magic variables
+        "playbook_dir", "inventory_dir", "inventory_file",
+        "play_name", "play_agents",
+        "ansible_play_agents",
+        "ansible_check_mode", "ansible_verbosity",
+        "ansible_run_tags", "ansible_skip_tags", "ansible_limit",
+        "ansible_version", "crewai_playbook_version",
     }
 
     for play_idx, play in enumerate(playbook.plays):
@@ -228,6 +262,8 @@ def syntax_check(path: str | Path) -> List[str]:
         play_known = set(known_vars)
         if play.vars:
             play_known.update(play.vars.keys())
+        if play.vars_prompt:
+            play_known.update(vp.name for vp in play.vars_prompt)
 
         registered_vars: set[str] = set()
         for task_list in (play.tasks or []):

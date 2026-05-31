@@ -1,0 +1,137 @@
+# =============================================================================
+# Code Review Pipeline
+# =============================================================================
+# A focused code-review workflow where Wukong writes code, Bajie reviews
+# it fiercely, and Wukong revises until Bajie is satisfied. The classic
+# debate between the Monkey King and the Marshal of Heaven.
+#
+# Run:  crewai-playbook run demos/code-review.yml
+#       crewai-playbook run demos/code-review.yml -e language=python
+# =============================================================================
+
+- name: "Code Review & Revision Cycle"
+  agents:
+    - tang_sanzang
+    - wukong_backend
+    - wukong_frontend
+    - zhu_bajie
+    - sha_wujing
+    - bai_longma
+  process: sequential
+  vars:
+    language: "Python"
+    project: "data-pipeline"
+    project_dir: "{{ playbook_dir }}/output/review-cycle"
+    quality_threshold: "production-ready"
+
+  tasks:
+    # --- Research the coding standards first ---
+    - name: "Research coding standards"
+      agents:
+        - sha_wujing
+      task: >
+        Research {{ language }} best practices and coding standards for 2026.
+        Cover: naming conventions, error handling, type hints, docstrings,
+        logging patterns, and testing conventions. Output a coding standards document.
+      dest: "{{ project_dir }}/docs/coding-standards.md"
+      register: coding_standards
+
+    # --- Wukong writes the initial implementation ---
+    - name: "Write initial implementation"
+      agents:
+        - wukong_backend
+      task: >
+        Implement a data pipeline in {{ language }} that:
+        1. Reads CSV files from a directory
+        2. Validates and transforms the data
+        3. Loads it into a database
+        4. Handles errors gracefully
+        5. Logs all operations
+        Follow the coding standards above.
+      src: "{{ project_dir }}/docs/coding-standards.md"
+      dest: "{{ project_dir }}/src/pipeline.py"
+      register: initial_code
+
+    # --- Bajie reviews it ---
+    - name: "First review"
+      agents:
+        - zhu_bajie
+      task: >
+        Review the {{ language }} data pipeline code. Be rigorous:
+        - Check compliance with the coding standards
+        - Look for security issues (injection, data exposure)
+        - Check error handling completeness
+        - Verify logging quality
+        - Rate the code and list ALL issues found
+        Be specific: cite line numbers and provide fix suggestions.
+      src: "{{ project_dir }}/src/pipeline.py"
+      dest: "{{ project_dir }}/reviews/review-1.md"
+      register: review_1
+
+    # --- Bajie reviews the frontend too ---
+    - name: "Review frontend code"
+      agents:
+        - zhu_bajie
+      task: >
+        Review the dashboard HTML for: responsive design, accessibility,
+        performance (lazy loading, bundle size), and code organization.
+      src: "{{ project_dir }}/frontend/dashboard.html"
+      dest: "{{ project_dir }}/reviews/review-frontend.md"
+
+    # --- Wukong revises based on review ---
+    - name: "Revise implementation"
+      agents:
+        - wukong_backend
+      task: >
+        Based on the code review, revise the data pipeline implementation.
+        Fix all critical issues and address as many suggestions as possible.
+        Document any tradeoffs you intentionally make.
+      src: "{{ project_dir }}/reviews/review-1.md"
+      dest: "{{ project_dir }}/src/pipeline_v2.py"
+      register: revised_code
+
+    # --- Bajie reviews again ---
+    - name: "Second review"
+      agents:
+        - zhu_bajie
+      task: >
+        This is the revised version. Compare against the first review:
+        - Were all critical issues fixed?
+        - Were any new issues introduced?
+        - What is the overall quality now?
+        Give a final verdict: PASS, PASS WITH NOTES, or FAIL.
+      src: "{{ project_dir }}/src/pipeline_v2.py"
+      dest: "{{ project_dir }}/reviews/review-2.md"
+      register: review_2
+
+    # --- Bai Longma records the process ---
+    - name: "Document review process"
+      agents:
+        - bai_longma
+      task: >
+        Create a CODE_REVIEW.md documenting the entire review process:
+        - What was reviewed
+        - Issues found in each round
+        - How they were resolved
+        - Lessons learned for future code reviews
+      dest: "{{ project_dir }}/docs/CODE_REVIEW.md"
+
+    - name: "Write final summary"
+      agents:
+        - bai_longma
+      task: >
+        Write a final summary of the project state: what was built,
+        what was reviewed, and the final quality assessment.
+      dest: "{{ project_dir }}/SUMMARY.md"
+      notify:
+        - NotifyDone
+
+  handlers:
+    - name: "NotifyDone"
+      tasks:
+        - name: "Completion log"
+          agents:
+            - bai_longma
+          task: >
+            The code review cycle for {{ project }} is complete.
+            Record the final status in the team memory.

@@ -36,6 +36,32 @@ class TestResolveVars:
         result = resolve_vars(42, {})
         assert result == 42
 
+    def test_nested_variable_resolution(self):
+        context = {
+            "playbook_dir": "/path/to/project",
+            "project_dir": "{{ playbook_dir }}/output/sdd",
+            "feature": "task-board",
+        }
+        result = resolve_vars(
+            "{{ project_dir }}/specs/{{ feature }}/constitution.md",
+            context,
+        )
+        assert result == "/path/to/project/output/sdd/specs/task-board/constitution.md"
+
+    def test_double_nested_variables(self):
+        context = {
+            "base": "/base/path",
+            "project": "{{ base }}/project",
+            "output": "{{ project }}/output",
+        }
+        result = resolve_vars("path: {{ output }}/file.md", context)
+        assert result == "path: /base/path/project/output/file.md"
+
+    def test_circular_variable_reference(self):
+        context = {"a": "{{ b }}", "b": "{{ a }}"}
+        with pytest.raises(VariableError, match="circular"):
+            resolve_vars("{{ a }}", context)
+
 
 class TestCollectVariableRefs:
     def test_finds_variables(self):

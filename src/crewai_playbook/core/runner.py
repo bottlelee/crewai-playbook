@@ -3,7 +3,12 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, List, Optional
 
+# Allow OpenTelemetry tracer provider to be overridden (crewAI's Telemetry
+# sets a global provider that conflicts with subsequent runs).
+os.environ.setdefault("OTEL_PYTHON_TRACER_PROVIDER", "override")
+
 from crewai_playbook.models.agent import AgentDefinition
+from crewai_playbook.modules.tools import resolve_tools
 from crewai_playbook.utils.errors import ExecutionError
 
 
@@ -46,17 +51,20 @@ def create_crew_agent(
             "crewai is not installed. Run: pip install crewai"
         ) from exc
 
+    allow_delegation = definition.allow_delegation or definition.leader
     kwargs: Dict[str, Any] = {
         "role": definition.role,
         "goal": definition.goal,
         "backstory": definition.backstory,
-        "allow_delegation": definition.allow_delegation,
+        "allow_delegation": allow_delegation,
         "verbose": definition.verbose,
     }
     if definition.llm:
         kwargs["llm"] = _resolve_llm(definition.llm)
     if definition.tools:
-        kwargs["tools"] = definition.tools
+        resolved = resolve_tools(definition.tools)
+        if resolved:
+            kwargs["tools"] = resolved
     return CrewAgent(**kwargs)
 
 
@@ -105,6 +113,54 @@ def run_single_task(
 
     result = crew.kickoff()
     return str(result)
+
+
+def run_hierarchical_task(
+    task_description: str,
+    agent_names: List[str],
+    agent_definitions: Dict[str, AgentDefinition],
+    leader_name: str,
+    verbose: bool = False,
+) -> str:
+    """Execute a single task in hierarchical mode.
+
+    Creates a crew with the leader (manager) and the task-specific agents.
+    The manager delegates the task to the appropriate agent.
+    Returns the task output as a string.
+    """
+    try:
+        from crewai import Task as CrewTask, Crew, Process
+    except ImportError as exc:
+        raise ExecutionError(
+            "crewai is not installed. Run: pip install crewai"
+        ) from exc
+
+    all_names = [leader_name] + [n for n in agent_names if n != leader_name]
+    crew_agents = [
+        create_crew_agent(name, agent_definitions[name])
+        for name in all_names if name in agent_definitions
+    ]
+    if not crew_agents:
+        raise ExecutionError(
+            f"no valid agents found for task (requested: {agent_names})"
+        )
+
+    task_agent = crew_agents[1] if len(crew_agents) > 1 else crew_agents[0]
+    crew_task = CrewTask(
+        description=task_description,
+        agent=task_agent,
+        expected_output="A detailed response addressing the task requirements",
+    )
+
+    leader_def = agent_definitions[leader_name]
+    crew = Crew(
+        agents=crew_agents,
+        tasks=[crew_task],
+        process=Process.hierarchical,
+        manager_llm=_resolve_llm(leader_def.llm) if leader_def.llm else None,
+        verbose=verbose,
+    )
+    return str(crew.kickoff())
 
 
 def run_crew_for_play(
@@ -173,10 +229,8 @@ def run_crew_for_play(
 
     crew = Crew(**crew_kwargs)
 
-    results = crew.kickoff()
-    tasks_data_snapshot = tasks_data.copy()
+    full_output = str(crew.kickoff())
     output: Dict[str, str] = {}
-    for i, td in enumerate(tasks_data_snapshot):
-        task_result = results[i] if i < len(results) else ""
-        output[td["name"]] = str(task_result)
+    for td in tasks_data:
+        output[td["name"]] = full_output
     return output

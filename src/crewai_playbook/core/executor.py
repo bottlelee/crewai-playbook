@@ -10,6 +10,7 @@ from crewai_playbook.modules.facts import gather_facts
 from crewai_playbook.modules.handler import HandlerManager
 from crewai_playbook.modules.task import execute_task
 from crewai_playbook.core.runner import run_crew_for_play
+from crewai_playbook.modules.prompt import prompt_vars
 from crewai_playbook.modules.role import resolve_role_tasks
 from crewai_playbook.utils.errors import ExecutionError
 from crewai_playbook.utils.vars import resolve_vars as resolve_vars_fn
@@ -96,6 +97,15 @@ class PlaybookExecutor:
 
         if play.vars:
             variable_context.update(play.vars)
+
+        # vars_prompt: interactively prompt for values (skipped if
+        # the variable is already defined via extra-vars).
+        if play.vars_prompt:
+            prompted = prompt_vars(
+                play.vars_prompt,
+                already_defined=self.extra_vars,
+            )
+            variable_context.update(prompted)
 
         variable_context.update(self.extra_vars)
 

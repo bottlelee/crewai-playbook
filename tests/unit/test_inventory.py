@@ -49,3 +49,23 @@ class TestResolveAgents:
     def test_empty_group_raises(self, sample_inventory):
         with pytest.raises(InventoryError, match="no agents found"):
             resolve_agents(["@phantom"], sample_inventory)
+
+    def test_resolve_by_glob_star(self, sample_inventory):
+        result = resolve_agents(["*cher"], sample_inventory)
+        assert set(result.keys()) == {"researcher"}
+
+    def test_resolve_by_glob_prefix(self, sample_inventory):
+        result = resolve_agents(["research*"], sample_inventory)
+        assert set(result.keys()) == {"researcher"}
+
+    def test_resolve_by_glob_question_mark(self, sample_inventory):
+        result = resolve_agents(["?riter"], sample_inventory)
+        assert set(result.keys()) == {"writer"}
+
+    def test_resolve_by_glob_no_match_raises(self, sample_inventory):
+        with pytest.raises(InventoryError, match="no agents matched"):
+            resolve_agents(["zzz*"], sample_inventory)
+
+    def test_resolve_mixed_patterns(self, sample_inventory):
+        result = resolve_agents(["researcher", "writ*"], sample_inventory)
+        assert set(result.keys()) == {"researcher", "writer"}

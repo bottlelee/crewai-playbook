@@ -1,0 +1,159 @@
+# =============================================================================
+# crewai-playbook — Self-Development Playbook
+# =============================================================================
+# Asks the user what to work on, then tang_sanzang (leader) analyzes the
+# request and delegates to the appropriate team members.
+#
+# Before each major execution step, sha_wujing searches the web to verify
+# the plan aligns with official documentation.
+#
+# Usage:
+#   crewai-playbook run self-development.yml
+#   crewai-playbook run self-development.yml -e task="fix the lint errors"
+#   crewai-playbook run self-development.yml --check
+# =============================================================================
+
+- name: "Self-Development Workflow"
+  agents:
+    - tang_sanzang
+    - wukong_backend
+    - wukong_frontend
+    - wukong_devops
+    - zhu_bajie
+    - sha_wujing
+    - bai_longma
+  gather_facts: true
+  process: hierarchical
+  vars:
+    project_dir: "{{ playbook_dir }}"
+  vars_prompt:
+    - name: task
+      prompt: "What do you want to work on today?"
+      default: "review and improve the codebase"
+    - name: priority
+      prompt: "Priority level"
+      choices:
+        - low
+        - medium
+        - high
+      default: "medium"
+
+  tasks:
+    - name: "Analyze and plan"
+      agents:
+        - tang_sanzang
+      task: >
+        The user wants to: "{{ task }}" (priority: {{ priority }}).
+        Analyze this request, break it down into concrete sub-tasks,
+        and decide which team members should handle each part.
+
+        Available team:
+        - wukong_backend: backend/API development
+        - wukong_frontend: UI/frontend development
+        - wukong_devops: CI/CD, infrastructure, containers
+        - zhu_bajie: code review, quality assurance
+        - sha_wujing: research, tool discovery, support
+        - bai_longma: documentation, knowledge management
+
+        Project root: {{ project_dir }}
+      register: plan
+
+    - name: "Verify plan against official docs"
+      agents:
+        - sha_wujing
+      task: >
+        A plan has been created for the following user request:
+        "{{ task }}"
+
+        Plan:
+        {{ plan }}
+
+        Your job: search the web for official documentation related to
+        each step in the plan. For each technology, library, or tool
+        mentioned, find the official docs and verify that the planned
+        approach is correct and up-to-date.
+
+        Report:
+        1. Which official docs you consulted (with URLs if possible)
+        2. Whether the plan aligns with official recommendations
+        3. Any corrections or better approaches suggested by the docs
+      register: docs_plan
+
+    - name: "Execute the plan"
+      agents:
+        - wukong_backend
+        - wukong_frontend
+        - wukong_devops
+        - sha_wujing
+      task: >
+        Execute the following action plan.
+
+        User request: "{{ task }}"
+        Priority: {{ priority }}
+
+        Plan:
+        {{ plan }}
+
+        Official docs verification (from sha_wujing):
+        {{ docs_plan }}
+
+        Use the docs verification to adjust the approach if needed.
+        Complete each step and provide a summary of what was done.
+      register: result
+
+    - name: "Verify result against official docs"
+      agents:
+        - sha_wujing
+      task: >
+        The team has completed work on: "{{ task }}"
+
+        Result:
+        {{ result }}
+
+        Your job: search the web for official documentation to verify
+        that the output is correct and follows best practices. Check:
+        1. Are the APIs / libraries used correctly per official docs?
+        2. Are there any deprecated patterns or better alternatives?
+        3. Does the output match what the official docs describe?
+
+        Provide a verification report with any issues found.
+      register: docs_result
+
+    - name: "Review the result"
+      agents:
+        - zhu_bajie
+      task: >
+        Review the work done for: "{{ task }}"
+
+        Result:
+        {{ result }}
+
+        Docs verification (from sha_wujing):
+        {{ docs_result }}
+
+        Check for correctness, completeness, and potential issues.
+        Cross-reference the docs verification findings.
+        Provide feedback and flag anything that needs fixing.
+      register: review
+
+    - name: "Document the outcome"
+      agents:
+        - bai_longma
+      task: >
+        Document what was done for: "{{ task }}"
+
+        Result:
+        {{ result }}
+
+        Docs verification:
+        {{ docs_result }}
+
+        Review feedback:
+        {{ review }}
+
+        Write a concise summary covering:
+        - What was requested and what was done
+        - Official docs consulted and compliance status
+        - Review findings and any outstanding issues
+        Save it to the output file.
+      dest: "{{ project_dir }}/output/self-dev-result.md"

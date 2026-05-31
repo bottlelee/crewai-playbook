@@ -15,6 +15,10 @@ and defines **tasks** for them to execute.
   process: sequential     # "sequential" or "hierarchical" (default: sequential)
   vars:                   # Play-level variables
     key: value
+  vars_prompt:            # Interactive prompts (Ansible-compatible)
+    - name: topic
+      prompt: "What topic?"
+      default: "AI"
   tasks:
     - name: "Task name"
       ...
@@ -212,3 +216,63 @@ roles:
 
 Role variables merge: role `defaults/main.yml` < role `vars:` in the
 playbook.
+
+## vars_prompt
+
+Prompt the user interactively for variable values before tasks execute.
+This enables a single playbook to handle different goals based on user
+input — similar to Ansible's `vars_prompt`.
+
+```yaml
+- name: "Interactive Research"
+  agents:
+    - researcher
+  vars_prompt:
+    - name: topic
+      prompt: "What topic should we research?"
+      default: "AI trends"
+    - name: env
+      prompt: "Which environment?"
+      choices:
+        - dev
+        - staging
+        - production
+      default: "dev"
+    - name: api_key
+      prompt: "Enter API key"
+      private: true
+  tasks:
+    - name: "Research"
+      agents:
+        - researcher
+      task: "Research {{ topic }} for {{ env }}"
+```
+
+### Fields
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `name` | yes | — | Variable name (used as `{{ name }}` in tasks) |
+| `prompt` | no | `"Enter value for {name}"` | Text shown to the user |
+| `default` | no | — | Value used when user presses Enter with empty input |
+| `private` | no | `false` | Hide input (for passwords / secrets) |
+| `choices` | no | — | Restrict input to a set of valid values |
+
+### Behavior
+
+- Prompts run **before** task execution, after play-level `vars:` are set.
+- If a variable is already provided via `-e` / `--extra-vars`, the prompt
+  is **skipped** — the extra-var value takes precedence.
+- When stdin is not a TTY (e.g. CI), EOF triggers fallback to `default`
+  (or empty string if no default).
+- `choices` validation re-prompts on invalid input.
+
+### Use with `-e` to skip prompts
+
+```bash
+# Interactive — prompts for topic
+crewai-playbook run research.yml
+
+# Non-interactive — skips prompt, uses "quantum computing"
+crewai-playbook run research.yml -e topic="quantum computing"
+```

@@ -1,0 +1,15 @@
+- name: "Verify playbook_dir resolution"
+  agents:
+    - wukong_backend
+  process: sequential
+  gather_facts: false
+  vars:
+    topic: "testing"
+
+  tasks:
+    - name: "Write test file"
+      agents:
+        - wukong_backend
+      task: >
+        Write a short hello world message for "{{ topic }}".
+      dest: "{{ playbook_dir }}/output/{{ topic }}/hello.txt"

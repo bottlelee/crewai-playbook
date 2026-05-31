@@ -35,6 +35,15 @@ class Handler(BaseModel):
     tasks: List[Task]
 
 
+class VarPrompt(BaseModel):
+    """A single ``vars_prompt`` entry that asks the user for input."""
+    name: str
+    prompt: Optional[str] = None
+    default: Optional[str] = None
+    private: bool = False
+    choices: Optional[List[str]] = None
+
+
 class Role(BaseModel):
     role: str
     vars: Optional[dict[str, Any]] = None
@@ -46,6 +55,7 @@ class Play(BaseModel):
     name: str
     agents: List[str]
     vars: Optional[dict[str, Any]] = None
+    vars_prompt: Optional[List[VarPrompt]] = None
     tasks: Optional[List[Task | Block]] = None
     roles: Optional[List[Role]] = None
     handlers: Optional[List[Handler]] = None

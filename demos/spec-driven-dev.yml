@@ -1,0 +1,286 @@
+# =============================================================================
+# Spec-Driven Development with Journey to the West
+# =============================================================================
+# A complete SDD workflow using spec-kit phases. Each agent handles
+# the phase that matches their character archetype:
+#
+#   Tang Sanzang  → Constitution + Plan + Tasks (leadership)
+#   Sha Wujing    → Specify + Clarify + Research (support)
+#   Zhu Bajie     → Analyze + Checklist + Review (critic)
+#   Wukong        → Implement (execution)
+#   Bai Longma    → Documentation + Memory (record-keeping)
+#
+# Run:  crewai-playbook run demos/spec-driven-dev.yml
+#       crewai-playbook run demos/spec-driven-dev.yml -e feature="task-board"
+# =============================================================================
+
+- name: "Spec-Driven Development: Build a Feature from Scratch"
+  agents:
+    - tang_sanzang
+    - sha_wujing
+    - zhu_bajie
+    - "@wukong"
+    - bai_longma
+  process: hierarchical
+  gather_facts: true
+  vars:
+    feature: "task-board for crewai-playbook"
+    project_dir: "{{ playbook_dir }}/output/sdd"
+    tech_stack: "Python + FastAPI + sqlite + React"
+
+  tasks:
+    # =========================================================================
+    # PHASE 1: Constitution (Tang Sanzang)
+    # Establish project principles that govern all subsequent work
+    # =========================================================================
+    - name: "Phase 1: Establish project constitution"
+      agents:
+        - tang_sanzang
+      task: >
+        Establish the project constitution for the "{{ feature }}" feature.
+        Define core principles: code quality standards, testing requirements,
+        security constraints, and development workflow. This constitution
+        governs all subsequent phases. Write it as a structured document
+        with principles, governance rules, and compliance requirements.
+      dest: "{{ project_dir }}/specs/{{ feature }}/constitution.md"
+      register: constitution
+
+    # =========================================================================
+    # PHASE 2: Specify (Sha Wujing)
+    # Research and define what to build — requirements, user stories, edge cases
+    # =========================================================================
+    - name: "Phase 2a: Research technical context"
+      agents:
+        - sha_wujing
+      task: >
+        Research the technical context for a "{{ feature }}" application.
+        Investigate: similar products, UX patterns, database design patterns,
+        API design best practices, and security considerations. Output a
+        research report that informs the specification.
+      dest: "{{ project_dir }}/specs/{{ feature }}/research.md"
+      register: research
+
+    - name: "Phase 2b: Write feature specification"
+      agents:
+        - sha_wujing
+      task: >
+        Based on the research, write a complete feature specification for
+        "{{ feature }}". Include: prioritized user stories (P1, P2, P3),
+        acceptance scenarios (Given/When/Then), functional requirements
+        (FR-001 format), key entities, success criteria, and assumptions.
+        Follow the spec-kit specification template structure.
+      src: "{{ project_dir }}/specs/{{ feature }}/research.md"
+      dest: "{{ project_dir }}/specs/{{ feature }}/spec.md"
+      register: specification
+
+    - name: "Phase 2c: Clarify underspecified areas"
+      agents:
+        - sha_wujing
+      task: >
+        Review the specification and identify any underspecified areas.
+        For each unclear requirement, add a "[NEEDS CLARIFICATION]" marker
+        with specific questions. Output a clarified version of the spec
+        with all ambiguities resolved or flagged.
+      src: "{{ project_dir }}/specs/{{ feature }}/spec.md"
+      dest: "{{ project_dir }}/specs/{{ feature }}/spec-clarified.md"
+
+    # =========================================================================
+    # PHASE 3: Plan (Tang Sanzang)
+    # Create technical implementation plan with architecture decisions
+    # =========================================================================
+    - name: "Phase 3a: Create implementation plan"
+      agents:
+        - tang_sanzang
+      task: >
+        Based on the clarified specification, create a technical implementation
+        plan. Define: tech stack ({{ tech_stack }}), project structure,
+        data model, API contracts, and testing strategy. Every technology
+        choice must have documented rationale tracing back to requirements.
+      src: "{{ project_dir }}/specs/{{ feature }}/spec-clarified.md"
+      dest: "{{ project_dir }}/specs/{{ feature }}/plan.md"
+      register: plan
+
+    - name: "Phase 3b: Design data model"
+      agents:
+        - tang_sanzang
+      task: >
+        Design the database schema based on the implementation plan.
+        Include: entity relationships, table definitions with columns,
+        indexes, foreign keys, and constraints. Output as SQL DDL
+        and an entity-relationship description.
+      src: "{{ project_dir }}/specs/{{ feature }}/plan.md"
+      dest: "{{ project_dir }}/specs/{{ feature }}/data-model.md"
+
+    - name: "Phase 3c: Define API contracts"
+      agents:
+        - tang_sanzang
+      task: >
+        Define the API contracts for the feature. Include: endpoint paths,
+        HTTP methods, request/response schemas, authentication requirements,
+        and error response formats. Output as OpenAPI-style documentation.
+      src: "{{ project_dir }}/specs/{{ feature }}/plan.md"
+      dest: "{{ project_dir }}/specs/{{ feature }}/contracts/api-spec.md"
+
+    # =========================================================================
+    # PHASE 4: Analyze (Zhu Bajie)
+    # Cross-artifact consistency review — the critic's moment
+    # =========================================================================
+    - name: "Phase 4a: Cross-artifact consistency analysis"
+      agents:
+        - zhu_bajie
+      task: >
+        Perform a cross-artifact consistency analysis across all specification
+        documents. Check: Do the user stories in the spec align with the
+        implementation plan? Do the API contracts cover all functional
+        requirements? Does the data model support all user stories?
+        Are there any contradictions or gaps? Output a detailed analysis
+        report with findings and recommendations.
+      src: "{{ project_dir }}/specs/{{ feature }}/spec-clarified.md"
+      dest: "{{ project_dir }}/specs/{{ feature }}/analysis.md"
+      register: analysis
+
+    - name: "Phase 4b: Generate quality checklist"
+      agents:
+        - zhu_bajie
+      task: >
+        Generate a quality checklist for the specification. For each
+        requirement, create checkable items: Is it testable? Is it
+        unambiguous? Does it have acceptance criteria? Is it traceable
+        to a user story? Mark each item as PASS or FAIL with evidence.
+      src: "{{ project_dir }}/specs/{{ feature }}/analysis.md"
+      dest: "{{ project_dir }}/specs/{{ feature }}/checklists/quality.md"
+
+    # =========================================================================
+    # PHASE 5: Tasks (Tang Sanzang)
+    # Break down the plan into actionable, ordered tasks
+    # =========================================================================
+    - name: "Phase 5: Generate task breakdown"
+      agents:
+        - tang_sanzang
+      task: >
+        Break down the implementation plan into actionable tasks. Organize
+        by user story. Mark parallelizable tasks with [P]. Include exact
+        file paths. Define dependencies between tasks. Follow the template:
+        Setup → Foundational → User Story phases → Polish. Each task
+        must be specific, measurable, and have clear acceptance criteria.
+      src: "{{ project_dir }}/specs/{{ feature }}/plan.md"
+      dest: "{{ project_dir }}/specs/{{ feature }}/tasks.md"
+      register: tasks
+
+    # =========================================================================
+    # PHASE 6: Implement (Wukong Avatars)
+    # Execute the tasks — each avatar handles their specialty
+    # =========================================================================
+    - name: "Phase 6a: Implement database schema"
+      agents:
+        - wukong_data
+      task: >
+        Implement the database schema from the data model document.
+        Write the complete SQL DDL with: CREATE TABLE statements,
+        indexes, foreign key constraints, and seed data if needed.
+      src: "{{ project_dir }}/specs/{{ feature }}/data-model.md"
+      dest: "{{ project_dir }}/src/db/schema.sql"
+
+    - name: "Phase 6b: Implement backend API"
+      agents:
+        - wukong_backend
+      task: >
+        Implement the backend API following the implementation plan and
+        API contracts. Include: endpoint handlers, request validation,
+        error handling, and middleware. Follow the project constitution
+        for code quality standards.
+      src: "{{ project_dir }}/specs/{{ feature }}/contracts/api-spec.md"
+      dest: "{{ project_dir }}/src/api/main.py"
+
+    - name: "Phase 6c: Implement frontend"
+      agents:
+        - wukong_frontend
+      task: >
+        Implement the frontend following the user stories and acceptance
+        scenarios from the specification. Include: page layouts,
+        component structure, user interactions, and responsive design.
+      src: "{{ project_dir }}/specs/{{ feature }}/spec-clarified.md"
+      dest: "{{ project_dir }}/src/frontend/index.html"
+
+    - name: "Phase 6d: Set up infrastructure"
+      agents:
+        - wukong_devops
+      task: >
+        Set up the project infrastructure: Docker configuration,
+        CI pipeline, environment configuration, and deployment scripts.
+        Follow the deployment constraints from the constitution.
+      src: "{{ project_dir }}/specs/{{ feature }}/plan.md"
+      dest: "{{ project_dir }}/src/infra/docker-compose.yml"
+
+    # =========================================================================
+    # PHASE 7: Review (Zhu Bajie)
+    # Final review against specification — the ultimate quality gate
+    # =========================================================================
+    - name: "Phase 7a: Implementation review"
+      agents:
+        - zhu_bajie
+      task: >
+        Review the implemented code against the specification and plan.
+        Check: Does the implementation match the API contracts? Are all
+        user stories covered? Is the code quality consistent with the
+        constitution? List issues, suggestions, and things done well.
+      src: "{{ project_dir }}/specs/{{ feature }}/spec-clarified.md"
+      dest: "{{ project_dir }}/specs/{{ feature }}/reviews/implementation-review.md"
+      register: impl_review
+
+    - name: "Phase 7b: Final quality gate"
+      agents:
+        - zhu_bajie
+      task: >
+        Perform the final quality gate check. Validate all checklist
+        items are PASS. Verify all user stories are independently
+        testable. Confirm the implementation follows the constitution.
+        Give a final verdict: PASS, PASS WITH NOTES, or FAIL.
+      src: "{{ project_dir }}/specs/{{ feature }}/checklists/quality.md"
+      dest: "{{ project_dir }}/specs/{{ feature }}/reviews/final-gate.md"
+
+    # =========================================================================
+    # PHASE 8: Document (Bai Longma)
+    # Record everything — the team's collective memory
+    # =========================================================================
+    - name: "Phase 8a: Write project README"
+      agents:
+        - bai_longma
+      task: >
+        Write a comprehensive README for the project. Include: project
+        overview, setup instructions, architecture overview, API reference,
+        and contributor guidelines. Reference all specification documents.
+      dest: "{{ project_dir }}/README.md"
+
+    - name: "Phase 8b: Record decisions"
+      agents:
+        - bai_longma
+      task: >
+        Create a DECISIONS.md file recording all key decisions made during
+        the SDD process. For each decision: what was chosen, alternatives
+        considered, rationale, and date. This is the team's authoritative
+        source of truth.
+      dest: "{{ project_dir }}/DECISIONS.md"
+
+    - name: "Phase 8c: Team memory snapshot"
+      agents:
+        - bai_longma
+      task: >
+        Create a complete team memory snapshot: who did what, key decisions,
+        issues found in review, and current project status. This file
+        captures the entire journey from constitution to implementation.
+      dest: "{{ project_dir }}/TEAM_MEMORY.md"
+      notify:
+        - NotifyDone
+
+  handlers:
+    - name: "NotifyDone"
+      tasks:
+        - name: "Completion summary"
+          agents:
+            - bai_longma
+          task: >
+            The SDD workflow for "{{ feature }}" is complete.
+            All specification artifacts, implementation code, reviews,
+            and documentation have been produced. The team's scriptures
+            are safely recorded on Bai Longma's back.
